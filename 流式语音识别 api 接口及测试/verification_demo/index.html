@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASR Verification Demo</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+        #status { color: #666; margin-bottom: 10px; }
+        #result { border: 1px solid #ccc; padding: 10px; min-height: 100px; white-space: pre-wrap; margin-top: 10px; }
+        .highlight { color: blue; }
+        .final { color: black; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Maia ASR Verification</h1>
+    <div id="status">Ready</div>
+    <button id="btn-start">Start Recording</button>
+    <button id="btn-stop" disabled>Stop Recording</button>
+    
+    <div id="result"></div>
+
+    <script>
+        let ws;
+        let audioContext;
+        let processor;
+        let input;
+        let stream;
+
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+
+        // Resampling & Conversion (Float32 -> Int16 PCM at 16kHz)
+        function downsampleBuffer(buffer, sampleRate, outSampleRate) {
+            if (outSampleRate === sampleRate) {
+                return convertFloatToInt16(buffer);
+            }
+            const sampleRateRatio = sampleRate / outSampleRate;
+            const newLength = Math.round(buffer.length / sampleRateRatio);
+            const result = new Int16Array(newLength);
+            let offsetResult = 0;
+            let offsetBuffer = 0;
+            while (offsetResult < result.length) {
+                const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+                let accum = 0, count = 0;
+                for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+                    accum += buffer[i];
+                    count++;
+                }
+                // Average the samples (simple low-pass filter effect)
+                const avg = accum / count;
+                // Clip and convert
+                const s = Math.max(-1, Math.min(1, avg));
+                result[offsetResult] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                offsetResult++;
+                offsetBuffer = nextOffsetBuffer;
+            }
+            return result;
+        }
+
+        function convertFloatToInt16(buffer) {
+            const l = buffer.length;
+            const buf = new Int16Array(l);
+            for (let i = 0; i < l; i++) {
+                const s = Math.max(-1, Math.min(1, buffer[i]));
+                buf[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return buf;
+        }
+
+        btnStart.onclick = async () => {
+            try {
+                statusDiv.textContent = "Connecting...";
+                ws = new WebSocket(`ws://${location.host}/ws`);
+                
+                ws.onopen = async () => {
+                    statusDiv.textContent = "Connected. Requesting Mic...";
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        audioContext = new AudioContext();
+                        input = audioContext.createMediaStreamSource(stream);
+                        
+                        // Buffer size 4096 gives ~85ms at 48kHz, good balance
+                        processor = audioContext.createScriptProcessor(4096, 1, 1);
+                        
+                        input.connect(processor);
+                        processor.connect(audioContext.destination);
+
+                        processor.onaudioprocess = (e) => {
+                            const inputData = e.inputBuffer.getChannelData(0);
+                            // Downsample to 16000
+                            const pcmData = downsampleBuffer(inputData, audioContext.sampleRate, 16000);
+                            
+                            // Send via WS
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.send(pcmData.buffer);
+                            }
+                        };
+
+                        statusDiv.textContent = "Recording...";
+                        btnStart.disabled = true;
+                        btnStop.disabled = false;
+                        resultDiv.textContent = ""; // Clear previous
+                    } catch (err) {
+                        statusDiv.textContent = "Mic Error: " + err.message;
+                        ws.close();
+                    }
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    // Handle ASR result
+                    if (data.result) {
+                        // "text" is the full text usually
+                        // "utterances" has detailed segments
+                        
+                        // For streaming display, we can show data.result.text
+                        // Note: Volc engine returns partial results with 'definite': false usually?
+                        // Let's inspect the payload structure.
+                        
+                        // Example: { "result": { "text": "...", "utterances": [...] } }
+                        // Or just { "text": "..." } depending on format?
+                        // Doc says: Payload contains "result" (list) or just "result" dict?
+                        // Doc: "result": { "text": "...", "utterances": [...] }
+                        
+                        if (data.result && data.result.text) {
+                             resultDiv.innerHTML = `<span class="highlight">${data.result.text}</span>`;
+                        }
+                    }
+                };
+
+                ws.onclose = () => {
+                    statusDiv.textContent = "Disconnected";
+                    stopRecording();
+                };
+
+            } catch (e) {
+                statusDiv.textContent = "Error: " + e.message;
+            }
+        };
+
+        btnStop.onclick = () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send("STOP");
+                statusDiv.textContent = "Stopping...";
+            }
+            stopRecording();
+        };
+
+        function stopRecording() {
+            if (processor) {
+                processor.disconnect();
+                processor.onaudioprocess = null;
+            }
+            if (input) {
+                input.disconnect();
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+        }
+    </script>
+</body>
+</html>
