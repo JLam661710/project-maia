@@ -3,7 +3,7 @@ import json
 from typing import Dict, Any, List, Optional
 
 from utils.llm_client import LLMClient
-from prompts.interviewer_prompt import INTERVIEWER_SYSTEM_PROMPT
+from prompts.interviewer_prompt import INTERVIEWER_CORE_PROMPT, INTERVIEWER_INIT_INSTRUCTION
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,9 @@ class InterviewerAgent:
         self.llm = llm_client if llm_client else LLMClient()
         self.history: List[Dict[str, str]] = []
         
-        # 初始化对话历史，设置基础 System Prompt
-        self.history.append({"role": "system", "content": INTERVIEWER_SYSTEM_PROMPT})
+        # 初始化对话历史，设置基础 System Prompt (Core + Init)
+        full_prompt = f"{INTERVIEWER_CORE_PROMPT}\n\n{INTERVIEWER_INIT_INSTRUCTION}"
+        self.history.append({"role": "system", "content": full_prompt})
 
     async def generate_reply(self, user_input: Optional[str] = None, system_notice: Optional[str] = None) -> str:
         """
@@ -56,6 +57,13 @@ class InterviewerAgent:
         # 5. 记录 AI 的回复到历史
         if isinstance(response, str):
             self.history.append({"role": "assistant", "content": response})
+            
+            # 动态 Prompt 管理: 如果是第一轮回复，移除启动指令
+            assistant_msgs = [m for m in self.history if m["role"] == "assistant"]
+            if len(assistant_msgs) == 1 and self.history[0]["role"] == "system":
+                self.history[0]["content"] = INTERVIEWER_CORE_PROMPT
+                logger.info("System prompt updated: Initialization instructions removed after first turn.")
+                
             return response
         else:
             return "Error: Unexpected response format."
