@@ -52,7 +52,13 @@ class InterviewerAgent:
             })
             
         # 4. 调用 LLM
-        response = await self.llm.chat_completion(messages=messages)
+        response = await self.llm.chat_completion(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1024,
+            top_p=0.9,
+            reasoning_effort="minimal"
+        )
         
         # 5. 记录 AI 的回复到历史
         if isinstance(response, str):

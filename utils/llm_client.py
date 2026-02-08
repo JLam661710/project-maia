@@ -39,6 +39,8 @@ class LLMClient:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        top_p: float = 0.9,
+        reasoning_effort: Optional[str] = None,
         json_mode: bool = False,
         stream: bool = False
     ) -> Union[str, Dict[str, Any]]:
@@ -49,6 +51,8 @@ class LLMClient:
             messages: 消息列表 [{"role": "user", "content": "..."}]
             temperature: 随机度 (0.0 - 1.0)
             max_tokens: 最大输出长度
+            top_p: 核采样概率
+            reasoning_effort: 推理强度 (minimal/low/medium/high) - 适配 Doubao 1.8
             json_mode: 是否强制输出 JSON 格式
             stream: 是否流式输出 (暂不支持, 这里仅预留接口)
             
@@ -58,16 +62,31 @@ class LLMClient:
         try:
             response_format = {"type": "json_object"} if json_mode else None
             
-            logger.debug(f"Sending request to LLM (json_mode={json_mode})...")
+            # 构建额外参数，适配 Doubao API 的 reasoning_effort
+            extra_body = {}
+            if reasoning_effort:
+                # 注意：具体字段名需参考火山引擎文档，此处假设为 reasoning_effort
+                # 同时也尝试通过 thinking_level 传递以防万一，通常多传不报错
+                extra_body["reasoning_effort"] = reasoning_effort
             
-            response = await self.client.chat.completions.create(
-                model=self.model_id,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format=response_format,
-                stream=stream
-            )
+            logger.debug(f"Sending request to LLM (json_mode={json_mode}, reasoning={reasoning_effort})...")
+            
+            # 准备参数字典
+            kwargs = {
+                "model": self.model_id,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": top_p,
+                "response_format": response_format,
+                "stream": stream
+            }
+            
+            # 只有当 extra_body 不为空时才添加，避免某些 SDK 版本报错
+            if extra_body:
+                kwargs["extra_body"] = extra_body
+
+            response = await self.client.chat.completions.create(**kwargs)
 
             content = response.choices[0].message.content
             

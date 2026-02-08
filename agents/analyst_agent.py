@@ -85,6 +85,10 @@ Ensure you generate a helpful `system_notice` in `interview_session` for the Int
             # 强制使用 JSON Mode
             response = await self.llm.chat_completion(
                 messages=messages,
+                temperature=0.1,
+                max_tokens=4096,
+                top_p=0.1,
+                reasoning_effort="minimal",
                 json_mode=True
             )
             

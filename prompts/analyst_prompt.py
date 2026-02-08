@@ -103,6 +103,8 @@ ANALYST_SYSTEM_PROMPT = """
   "schema_version": "String, e.g., 'v2.1-cognitive'",
   "status": "String, enum: ['In Progress', 'Completed']",
   "completion_readiness": "Number, 0-100",
+  "needs_judge_review": "Boolean, 是否需要审判鹳(Judge)介入评估（仅在关键节点/风险点/状态变更时设为 true）",
+  "judge_review_reason": "String, 请求 Judge 介入的原因（若 needs_judge_review 为 false 则留空）",
   "blockers": ["String, 阻止完成访谈的关键缺口（低负担描述）"],
   "missing_info": ["String, 当前仍缺失的关键信息标签"],
   "interview_session": {
