@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import MaiaCanvas from './components/MaiaCanvas'
 import { AudioStreamPlayer } from './utils/audioStreamPlayer'
 import { AudioRecorder } from './utils/audioRecorder'
@@ -36,7 +36,9 @@ function App() {
             if(msg.type === 'status' && msg.content === 'done') {
                 setStatus("Finished speaking.")
             }
-        } catch(e) {}
+        } catch (e) {
+            void e
+        }
       }
     }
 
@@ -151,7 +153,7 @@ function App() {
         {/* ASR Result Display */}
         {asrText && (
             <div className="asr-result">
-                "{asrText}"
+                &quot;{asrText}&quot;
             </div>
         )}
 

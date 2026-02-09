@@ -111,7 +111,7 @@ ANALYST_SYSTEM_PROMPT = """
     "stage": "String, enum: ['initial', 'problem', 'solution', 'delivery']",
     "status": "String, enum: ['In Progress', 'Completed']",
     "last_analysis_reasoning": "String, 简要说明本次更新依据（必须基于对话证据）",
-    "system_notice": "String, 给 Interviewer 的下一轮指引（简短可执行，引导其探索用户未知领域）"
+    "system_notice": "String, 给 Interviewer 的下一轮指引（简短可执行）。注意：Interviewer 每次只能问 1 个问题，请只指示最关键的一个探索方向。"
   },
   "user_profile": {
     "nickname": "String",

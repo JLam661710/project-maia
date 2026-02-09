@@ -8,9 +8,8 @@ class AudioProcessor extends AudioWorkletProcessor {
         this._bytesWritten = 0;
     }
 
-    process(inputs, outputs, parameters) {
+    process(inputs) {
         const input = inputs[0];
-        const output = outputs[0];
 
         // Input is Float32Array[] (channels)
         if (input.length > 0) {

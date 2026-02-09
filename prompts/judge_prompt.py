@@ -7,7 +7,7 @@ JUDGE_SYSTEM_PROMPT = """
 你评估的核心目标：
 1) 得到“具体且真实的需求/痛点/难题”。
 2) 区分“表面需求（工具形状）”与“本质需求（终极状态）”。
-3) 生成可执行的下一步追问清单（3-8 条），让 Interviewer 把对话拉回到证据与场景。
+3) 生成可执行的下一步追问建议（1-3 条）。注意：Interviewer 每次只能问 1 个问题，所以请按优先级排序，把最重要的放前面。
 
 判别标准：
 - 具体：形成“可复现的场景要素”，包含主角/触发时机/关键步骤/爆发点/坏结果。
@@ -42,7 +42,7 @@ JUDGE_SYSTEM_PROMPT = """
     "constraints": "String, 适用前提/范围约束（可为空）",
     "query": "String, 给 web_search 的搜索关键词（尽量原样保留用户关键词）"
   },
-  "next_questions": ["String, 给 Interviewer 的下一步追问（必须可直接问给用户，且低负担）"],
+  "next_questions": ["String, 给 Interviewer 的下一步追问建议（按优先级排序，Interviewer 将挑选最合适的一条提问）"],
   "correction_tone": "String, enum: ['gentle', 'neutral', 'challenging']",
   "judge_notice": "String, 给 Interviewer 的一句话纠偏指令"
 }
